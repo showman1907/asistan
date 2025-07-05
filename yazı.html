@@ -39,6 +39,8 @@
     <!-- === Bitiş: Mobil Uygulama Ayarları === -->
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- OCR (Metin Okuma) Kütüphanesi -->
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,6 +53,9 @@
         textarea::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; }
         textarea::-webkit-scrollbar-thumb:hover { background: #475569; }
         #outputText { white-space: pre-wrap; word-wrap: break-word; }
+        #ocrStatus {
+            transition: opacity 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
@@ -61,15 +66,18 @@
                 <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-slate-600"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
                 <h1 class="text-3xl md:text-4xl font-bold text-slate-800">Resmi Yazışma Asistanı</h1>
             </div>
-            <p class="mt-2 text-md text-slate-500">Metninizi yapıştırın, yapay zeka sizin için düzeltsin ve iyileştirsin.</p>
+            <p class="mt-2 text-md text-slate-500">Metninizi yapıştırın, kamerayla tarayın, düzeltin ve paylaşın.</p>
         </header>
+
+        <!-- OCR Status Message -->
+        <div id="ocrStatus" class="text-center mb-4 font-medium text-slate-600 opacity-0"></div>
 
         <main class="grid md:grid-cols-2 gap-6 md:gap-8">
             
             <div class="flex flex-col">
                 <label for="inputText" class="text-lg font-semibold text-slate-700 mb-2">Orijinal Metin</label>
                 <div class="flex-grow bg-slate-50 rounded-xl border border-slate-200">
-                    <textarea id="inputText" class="w-full h-96 p-4 bg-transparent rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Düzeltilecek metni buraya yapıştırınız..."></textarea>
+                    <textarea id="inputText" class="w-full h-96 p-4 bg-transparent rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Düzeltilecek metni buraya yapıştırınız veya kamerayla tarayınız..."></textarea>
                 </div>
             </div>
 
@@ -84,29 +92,40 @@
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <p class="mt-3 text-slate-600 font-medium">Metin işleniyor...</p>
+                        <p id="loadingText" class="mt-3 text-slate-600 font-medium">Metin işleniyor...</p>
                     </div>
                 </div>
             </div>
         </main>
         
-        <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button id="correctButton" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white font-bold py-3 px-8 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"></path></svg>
-                <span>Düzelt ve İyileştir</span>
+        <!-- Action Buttons -->
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-4">
+            <button id="scanButton" class="flex items-center justify-center gap-2 bg-indigo-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+                <span>Kamera ile Tara</span>
             </button>
-            <button id="copyButton" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-slate-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-slate-700 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-slate-300">
+            <input type="file" id="imageInput" accept="image/*" class="hidden">
+
+            <button id="correctButton" class="flex items-center justify-center gap-2 bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10"></path></svg>
+                <span>Düzelt</span>
+            </button>
+            <button id="copyButton" class="flex items-center justify-center gap-2 bg-slate-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-slate-700 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-slate-300">
                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>
                 <span>Kopyala</span>
             </button>
-             <button id="clearButton" class="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-red-700 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
+            <button id="shareButton" class="flex items-center justify-center gap-2 bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-green-700 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" x2="12" y1="2" y2="15"></line></svg>
+                <span>Paylaş</span>
+            </button>
+             <button id="clearButton" class="flex items-center justify-center gap-2 bg-red-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-red-700 transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-red-300">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 <span>Temizle</span>
             </button>
         </div>
 
         <footer class="text-center mt-10 border-t border-slate-200 pt-4">
-            <p class="text-sm text-slate-500">&copy; 2024 - Harita mühendisliği hassasiyetiyle, Gökhan Elgül için geliştirildi.</p>
+            <p class="text-sm text-slate-500">&copy; 2025 - Harita mühendisliği hassasiyetiyle, by Gökhan ELGÜL</p>
         </footer>
     </div>
 
@@ -118,47 +137,103 @@
         const copyButton = document.getElementById('copyButton');
         const clearButton = document.getElementById('clearButton');
         const loadingSpinner = document.getElementById('loadingSpinner');
+        const loadingText = document.getElementById('loadingText');
         const outputTextContainer = document.getElementById('outputTextContainer');
+        const scanButton = document.getElementById('scanButton');
+        const imageInput = document.getElementById('imageInput');
+        const ocrStatus = document.getElementById('ocrStatus');
+        const shareButton = document.getElementById('shareButton');
         
         const placeholderText = '<span class="text-slate-400">Düzeltilmiş metin burada görünecektir.</span>';
 
-        // Event Listener for the Correct Button
-        correctButton.addEventListener('click', async () => {
-            const originalText = inputText.value.trim();
+        // --- YENİ: Kamera ile Tarama (OCR) İşlevi ---
+        scanButton.addEventListener('click', () => {
+            imageInput.click();
+        });
 
+        imageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            loadingText.textContent = 'Metin okunuyor...';
+            loadingSpinner.classList.remove('hidden');
+            setButtonsDisabled(true);
+            
+            Tesseract.recognize(
+                file,
+                'tur', 
+                { 
+                    logger: m => {
+                        if (m.status === 'recognizing text') {
+                           const progress = (m.progress * 100).toFixed(0);
+                           ocrStatus.textContent = `Metin taranıyor... %${progress}`;
+                           ocrStatus.style.opacity = '1';
+                        }
+                    } 
+                }
+            ).then(({ data: { text } }) => {
+                inputText.value = text;
+                ocrStatus.textContent = 'Metin başarıyla okundu!';
+                setTimeout(() => { ocrStatus.style.opacity = '0'; }, 3000);
+            }).catch(err => {
+                console.error(err);
+                ocrStatus.textContent = 'Metin okunurken bir hata oluştu.';
+                ocrStatus.style.opacity = '1';
+            }).finally(() => {
+                loadingSpinner.classList.add('hidden');
+                setButtonsDisabled(false);
+                imageInput.value = ''; 
+            });
+        });
+
+        // --- YENİ: Paylaşma İşlevi ---
+        if (!navigator.share) {
+            shareButton.style.display = 'none';
+        }
+
+        shareButton.addEventListener('click', async () => {
+            const textToShare = outputText.innerText;
+            if (textToShare && !outputText.querySelector('span')) {
+                try {
+                    await navigator.share({
+                        title: 'Düzeltilmiş Metin',
+                        text: textToShare,
+                    });
+                } catch (err) {
+                    console.error('Paylaşma hatası:', err);
+                }
+            } else {
+                const originalText = shareButton.innerHTML;
+                shareButton.innerHTML = `<span>Önce Düzeltin</span>`;
+                setTimeout(() => {
+                    shareButton.innerHTML = originalText;
+                }, 2000);
+            }
+        });
+
+        // --- Mevcut İşlevler (API ANAHTARI İLE GÜNCELLENDİ) ---
+        correctButton.addEventListener('click', async () => {
+            // === API ANAHTARI SİZİN TARAFINIZDAN EKLENDİ ===
+            const apiKey = "AIzaSyCxG-n6HpUKNB1_OWlurIxApRhRfgFMHfc"; 
+
+            if (!apiKey || apiKey.includes("YAPIŞTIRIN")) {
+                 outputText.innerHTML = `<span class="text-red-500">Lütfen kodun içindeki 'apiKey' değişkenine Google AI Studio'dan aldığınız ücretsiz anahtarı yapıştırın.</span>`;
+                 return;
+            }
+            
+            const originalText = inputText.value.trim();
             if (!originalText) {
                 outputText.innerHTML = '<span class="text-red-500">Lütfen düzeltilecek bir metin girin.</span>';
                 return;
             }
 
-            // Show loading state
+            loadingText.textContent = 'Yapay zeka düzeltiyor...';
             loadingSpinner.classList.remove('hidden');
-            correctButton.disabled = true;
-            correctButton.classList.add('opacity-50', 'cursor-not-allowed');
-            outputText.innerHTML = '';
+            setButtonsDisabled(true);
 
             try {
-                // This is the prompt that instructs the AI model
-                const prompt = `
-                    Sen Türkiye'deki resmi yazışma kuralları konusunda uzman bir asistansın. Görevin, aşağıda verilen metni analiz etmek ve "Resmi Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik" hükümlerine, ayrıca Türk Dil Kurumu'nun güncel yazım ve imla kurallarına uygun olarak yeniden yazmaktır.
-
-                    Yapman gerekenler:
-                    1.  Tüm imla, noktalama ve dil bilgisi hatalarını düzelt.
-                    2.  Metnin anlamını kesinlikle değiştirmeden, cümleleri daha akıcı, net ve profesyonel bir dille ifade et.
-                    3.  Resmi yazışma diline uygun olmayan (fazla samimi, argo vb.) ifadeleri düzelt.
-                    4.  Gereksiz kelime tekrarlarından kaçın.
-                    5.  Sadece ve sadece düzeltilmiş metni sonuç olarak döndür. Öncesinde veya sonrasında herhangi bir açıklama, selamlama veya yorum ekleme.
-
-                    İşte düzeltilecek metin:
-                    ---
-                    ${originalText}
-                    ---
-                `;
-
-                // Gemini API call configuration
-                let chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
-                const payload = { contents: chatHistory };
-                const apiKey = ""; // API key is handled by the environment
+                const prompt = `Sen Türkiye'deki resmi yazışma kuralları konusunda uzman bir asistansın. Görevin, aşağıda verilen metni analiz etmek ve "Resmi Yazışmalarda Uygulanacak Usul ve Esaslar Hakkında Yönetmelik" hükümlerine, ayrıca Türk Dil Kurumu'nun güncel yazım ve imla kurallarına uygun olarak yeniden yazmaktır. Sadece ve sadece düzeltilmiş metni sonuç olarak döndür. Öncesinde veya sonrasında herhangi bir açıklama, selamlama veya yorum ekleme. İşte düzeltilecek metin:\n---\n${originalText}\n---`;
+                const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
                 
                 const response = await fetch(apiUrl, {
@@ -167,65 +242,48 @@
                     body: JSON.stringify(payload)
                 });
 
-                if (!response.ok) {
-                    throw new Error(`API isteği başarısız oldu: ${response.status}. Kurum ağınızda bu adrese erişim izni olduğundan emin olun.`);
-                }
+                if (!response.ok) throw new Error(`API isteği başarısız oldu: ${response.status}.`);
                 
                 const result = await response.json();
 
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    const correctedText = result.candidates[0].content.parts[0].text;
-                    outputText.innerText = correctedText.trim();
+                if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                    outputText.innerText = result.candidates[0].content.parts[0].text.trim();
                 } else {
                     throw new Error("API'den geçerli bir yanıt alınamadı.");
                 }
 
             } catch (error) {
                 console.error("Hata:", error);
-                outputText.innerHTML = `<span class="text-red-500">Bir hata oluştu. Lütfen tekrar deneyin veya internet bağlantınızı kontrol edin. Hata detayı: ${error.message}</span>`;
+                outputText.innerHTML = `<span class="text-red-500">Bir hata oluştu. Lütfen tekrar deneyin. Hata: ${error.message}</span>`;
             } finally {
-                // Hide loading state
                 loadingSpinner.classList.add('hidden');
-                correctButton.disabled = false;
-                correctButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                setButtonsDisabled(false);
             }
         });
 
-        // Event Listener for the Copy Button
         copyButton.addEventListener('click', () => {
             const textToCopy = outputText.innerText;
-            
             if (textToCopy && !outputText.querySelector('span')) {
-                const tempTextArea = document.createElement('textarea');
-                tempTextArea.value = textToCopy;
-                document.body.appendChild(tempTextArea);
-                tempTextArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(tempTextArea);
-
-                const originalText = copyButton.innerHTML;
-                copyButton.innerHTML = `
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-green-400"><path d="M20 6 9 17l-5-5"></path></svg>
-                    <span>Kopyalandı!</span>`;
-                setTimeout(() => {
-                    copyButton.innerHTML = originalText;
-                }, 2000);
-            } else {
-                 const originalText = copyButton.innerHTML;
-                copyButton.innerHTML = `<span>Önce Düzeltin</span>`;
-                setTimeout(() => {
-                    copyButton.innerHTML = originalText;
-                }, 2000);
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    const originalText = copyButton.innerHTML;
+                    copyButton.innerHTML = `<span>Kopyalandı!</span>`;
+                    setTimeout(() => { copyButton.innerHTML = originalText; }, 2000);
+                });
             }
         });
         
-        // Event Listener for the Clear Button
         clearButton.addEventListener('click', () => {
             inputText.value = '';
             outputText.innerHTML = placeholderText;
         });
+
+        function setButtonsDisabled(disabled) {
+            correctButton.disabled = disabled;
+            scanButton.disabled = disabled;
+            copyButton.disabled = disabled;
+            shareButton.disabled = disabled;
+            clearButton.disabled = disabled;
+        }
 
     </script>
 </body>
